@@ -1,0 +1,5 @@
+{
+  "name": "Kisan AI",
+  "description": "An intelligent agricultural assistant empowering farmers with crop recommendations, disease detection, market insights, and expert advice using Gemini AI.",
+  "requestFramePermissions": []
+}
