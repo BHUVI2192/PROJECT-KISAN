@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Initialize Gemini Client
+// Initialize AI Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const MODELS = {
@@ -66,7 +66,7 @@ export const analyzePlantDisease = async (base64Image: string, language: string 
     });
     return response.text || "{}";
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("AI API Error:", error);
     throw new Error("Failed to analyze plant image.");
   }
 };
@@ -90,7 +90,7 @@ export const chatWithBot = async (history: {role: string, parts: {text: string}[
     const result = await chat.sendMessage({ message });
     return result.text;
   } catch (error) {
-    console.error("Gemini Chat Error:", error);
+    console.error("AI Chat Error:", error);
     throw new Error("I'm having trouble connecting right now. Please try again.");
   }
 };
@@ -150,7 +150,7 @@ export const getCropRecommendation = async (
 
     return response.text || "{}";
   } catch (error) {
-    console.error("Gemini Crop Advisor Error:", error);
+    console.error("AI Crop Advisor Error:", error);
     throw new Error("Failed to get crop recommendations.");
   }
 };
@@ -212,7 +212,7 @@ export const getMarketInsights = async (query: string, language: string = 'en'):
     
     return { data, rawText: text, sources };
   } catch (error) {
-    console.error("Gemini Search Error:", error);
+    console.error("AI Search Error:", error);
     throw new Error("Failed to fetch market data.");
   }
 };
@@ -258,7 +258,7 @@ export const getGovernmentSchemes = async (state: string, category: string, lang
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleanText);
   } catch (error) {
-    console.error("Gemini Schemes Error:", error);
+    console.error("AI Schemes Error:", error);
     throw new Error("Failed to fetch schemes.");
   }
 };

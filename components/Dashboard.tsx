@@ -3,6 +3,7 @@ import React from 'react';
 import { ViewState } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ScanLine, TrendingUp, MessageCircleQuestion, ArrowRight, Sun, Landmark } from 'lucide-react';
+import SmartWeatherAdvisor from './SmartWeatherAdvisor';
 
 interface DashboardProps {
   onChangeView: (view: ViewState) => void;
@@ -14,9 +15,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onChangeView }) => {
   return (
     <div className="space-y-8 animate-fade-in pb-10">
       {/* Header Section */}
-      <div className="w-full">
+      <div className="w-full space-y-6">
         {/* Welcome Card */}
-        <div className="bg-gradient-to-br from-emerald-800 to-green-600 rounded-3xl p-8 text-white shadow-lg relative overflow-hidden flex flex-col justify-center min-h-[280px]">
+        <div className="bg-gradient-to-br from-emerald-800 to-green-600 rounded-3xl p-8 text-white shadow-lg relative overflow-hidden flex flex-col justify-center min-h-[220px]">
           <div className="absolute top-0 right-0 w-80 h-80 bg-white opacity-5 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" aria-hidden="true"></div>
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-yellow-400 opacity-5 rounded-full translate-y-1/3 -translate-x-1/3 blur-3xl" aria-hidden="true"></div>
           
@@ -25,16 +26,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onChangeView }) => {
             <p className="text-emerald-50 text-lg leading-relaxed opacity-90 max-w-lg">
               {t('dashboard.welcome_sub')}
             </p>
-            
-            <button 
-              onClick={() => onChangeView(ViewState.AGRI_CHAT)}
-              className="mt-8 bg-white text-emerald-800 px-6 py-3 rounded-xl font-semibold hover:bg-emerald-50 transition-colors w-fit shadow-lg shadow-black/10 flex items-center gap-2"
-            >
-              <MessageCircleQuestion size={20} />
-              {t('dashboard.card_chat_action')}
-            </button>
           </div>
         </div>
+
+        {/* Weather Advisor */}
+        <SmartWeatherAdvisor />
       </div>
 
       {/* Feature Cards Grid */}

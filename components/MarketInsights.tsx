@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getMarketInsights } from '../services/geminiService';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Search, TrendingUp, TrendingDown, Minus, ExternalLink, Loader2, Newspaper, Tag } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, Minus, ExternalLink, Loader2, Newspaper, Tag, BarChart3 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface MarketItem {
   name: string;
@@ -22,21 +23,69 @@ interface MarketData {
   groups: MarketGroup[];
 }
 
+// Mock Data Generator for Chart
+const generateHistoricalData = (basePrice: number) => {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+  // Create a realistic trend (e.g., slight seasonality or random walk)
+  let currentPrice = basePrice * 0.9; // Start slightly lower
+  
+  return months.map((month, index) => {
+    // Random fluctuation between -5% and +10% relative to previous month
+    const change = (Math.random() * 0.15) - 0.05; 
+    currentPrice = currentPrice * (1 + change);
+    
+    // Ensure the last month aligns closely with the actual base price for continuity
+    if (index === months.length - 1) {
+        currentPrice = basePrice;
+    }
+
+    return { name: month, price: Math.round(currentPrice) };
+  });
+};
+
 const MarketInsights: React.FC = () => {
   const { t, language } = useLanguage();
   const [query, setQuery] = useState('');
   const [marketResult, setMarketResult] = useState<{ data: MarketData | null; rawText: string; sources: any[] } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartTitle, setChartTitle] = useState('');
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
+  const handleSearch = async (e?: React.FormEvent, manualQuery?: string) => {
+    if (e) e.preventDefault();
+    const q = manualQuery || query;
+    if (!q.trim()) return;
     
+    if (manualQuery) setQuery(manualQuery);
+
     setLoading(true);
     setMarketResult(null);
+    setChartData([]);
+
     try {
-      const result = await getMarketInsights(query, language);
+      const result = await getMarketInsights(q, language);
       setMarketResult(result);
+
+      // Generate Chart Data
+      // Attempt to extract a price from the result, otherwise use a random base
+      let basePrice = 2000;
+      let itemName = q;
+      
+      if (result.data?.groups?.[0]?.items?.[0]) {
+        const item = result.data.groups[0].items[0];
+        itemName = item.name;
+        // Try to parse price string "₹2,500/Q" -> 2500
+        // Handle commas (e.g. 2,500) and other non-numeric chars
+        const cleanPriceString = item.price.replace(/,/g, '');
+        const match = cleanPriceString.match(/(\d+)/);
+        if (match) {
+          basePrice = parseInt(match[0], 10);
+        }
+      }
+
+      setChartTitle(itemName);
+      setChartData(generateHistoricalData(basePrice));
+
     } catch (error) {
       console.error(error);
       setMarketResult({ data: null, rawText: "Failed to fetch market data. Please try again.", sources: [] });
@@ -100,7 +149,7 @@ const MarketInsights: React.FC = () => {
           {suggestions.map((s: string) => (
             <button 
               key={s} 
-              onClick={() => { setQuery(s); }}
+              onClick={() => handleSearch(undefined, s)}
               className="text-sm px-3 py-1.5 bg-gray-100 text-gray-600 rounded-full hover:bg-emerald-50 hover:text-emerald-600 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400 border border-transparent hover:border-emerald-200"
             >
               {s}
@@ -120,58 +169,113 @@ const MarketInsights: React.FC = () => {
         {marketResult && !loading && (
           <div className="animate-fade-in space-y-8">
             
-            {(marketResult.data?.market_summary || (!marketResult.data && marketResult.rawText)) && (
-              <div className="bg-gradient-to-br from-emerald-50 to-white p-6 rounded-2xl shadow-sm border border-emerald-100 relative">
-                 <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                   <Newspaper className="text-emerald-600 w-6 h-6" aria-hidden="true" /> {t('market_insights.overview')}
-                 </h3>
-                 <div className="prose prose-emerald max-w-none prose-p:text-gray-700 prose-p:leading-relaxed">
-                   {marketResult.data ? (
-                     <p>{marketResult.data.market_summary}</p>
-                   ) : (
-                     <ReactMarkdown>{marketResult.rawText}</ReactMarkdown>
-                   )}
-                 </div>
+            <div className="grid lg:grid-cols-3 gap-6">
+              {/* Market Summary */}
+              <div className="lg:col-span-2 space-y-6">
+                 {(marketResult.data?.market_summary || (!marketResult.data && marketResult.rawText)) && (
+                  <div className="bg-gradient-to-br from-emerald-50 to-white p-6 rounded-2xl shadow-sm border border-emerald-100 relative">
+                     <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                       <Newspaper className="text-emerald-600 w-6 h-6" aria-hidden="true" /> {t('market_insights.overview')}
+                     </h3>
+                     <div className="prose prose-emerald max-w-none prose-p:text-gray-700 prose-p:leading-relaxed">
+                       {marketResult.data ? (
+                         <p>{marketResult.data.market_summary}</p>
+                       ) : (
+                         <ReactMarkdown>{marketResult.rawText}</ReactMarkdown>
+                       )}
+                     </div>
+                  </div>
+                )}
+                
+                {/* Chart Section */}
+                {chartData.length > 0 && (
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                      <BarChart3 className="text-emerald-600 w-5 h-5" aria-hidden="true" />
+                      Price Trend Analysis: {chartTitle}
+                    </h3>
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                          <XAxis 
+                            dataKey="name" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fill: '#6b7280', fontSize: 12 }} 
+                            dy={10}
+                          />
+                          <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fill: '#6b7280', fontSize: 12 }} 
+                          />
+                          <Tooltip 
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                            cursor={{ stroke: '#10b981', strokeWidth: 1, strokeDasharray: '4 4' }}
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="price" 
+                            stroke="#10b981" 
+                            strokeWidth={3}
+                            fillOpacity={1} 
+                            fill="url(#colorPrice)" 
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <p className="text-xs text-gray-400 text-center mt-4">* Data simulated for demonstration purposes based on current rates.</p>
+                  </div>
+                )}
               </div>
-            )}
 
-            {marketResult.data?.groups?.map((group, idx) => (
-              <div key={idx} className="space-y-4">
-                <div className="flex items-center gap-2">
-                   <div className="bg-emerald-100 p-1.5 rounded-lg" aria-hidden="true">
-                      <Tag className="w-5 h-5 text-emerald-700" />
-                   </div>
-                   <h3 className="text-xl font-bold text-gray-800">{group.category}</h3>
-                </div>
+              {/* Items List */}
+              <div className="space-y-4">
+                 {marketResult.data?.groups?.map((group, idx) => (
+                  <div key={idx} className="space-y-4">
+                    <div className="flex items-center gap-2">
+                       <div className="bg-emerald-100 p-1.5 rounded-lg" aria-hidden="true">
+                          <Tag className="w-4 h-4 text-emerald-700" />
+                       </div>
+                       <h3 className="text-lg font-bold text-gray-800">{group.category}</h3>
+                    </div>
 
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-                   {group.items.map((item, itemIdx) => (
-                     <article key={itemIdx} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col h-full">
-                        <div className="flex justify-between items-start mb-3">
-                           <h4 className="font-bold text-gray-800 text-lg">{item.name}</h4>
-                           <div className="flex items-center gap-1">
-                             {getTrendIcon(item.trend)}
-                           </div>
-                        </div>
-                        
-                        <div className="mb-4">
-                          <p className="text-2xl font-bold text-emerald-700">{item.price}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                             {getTrendLabel(item.trend)}
-                             <span className="text-xs text-gray-400">{t('market_insights.current_rate')}</span>
-                          </div>
-                        </div>
+                    <div className="space-y-4">
+                       {group.items.map((item, itemIdx) => (
+                         <article key={itemIdx} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-start mb-2">
+                               <h4 className="font-bold text-gray-800 text-md">{item.name}</h4>
+                               <div className="flex items-center gap-1">
+                                 {getTrendIcon(item.trend)}
+                               </div>
+                            </div>
+                            
+                            <div className="mb-3">
+                              <p className="text-xl font-bold text-emerald-700">{item.price}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                 {getTrendLabel(item.trend)}
+                              </div>
+                            </div>
 
-                        <div className="mt-auto pt-4 border-t border-gray-50">
-                           <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
-                             {item.news}
-                           </p>
-                        </div>
-                     </article>
-                   ))}
-                </div>
+                            <div className="pt-3 border-t border-gray-50">
+                               <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                                 {item.news}
+                               </p>
+                            </div>
+                         </article>
+                       ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
 
             {marketResult.sources.length > 0 && (
               <div className="pt-6 border-t border-gray-200">

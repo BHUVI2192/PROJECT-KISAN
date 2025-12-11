@@ -127,19 +127,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, isOpen, se
             );
           })}
         </nav>
-
-        {/* Footer */}
-        <div className="p-6 bg-[#064e3b] border-t border-emerald-800/30">
-          <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-emerald-900/30 border border-emerald-800/30 backdrop-blur-sm">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-green-400 flex items-center justify-center text-xs font-bold text-white shadow-inner">
-              AI
-            </div>
-            <div className="flex-1 min-w-0">
-               <p className="text-xs font-medium text-emerald-200 truncate">{t('app.powered_by')}</p>
-               <p className="text-[10px] text-emerald-400/60 truncate mt-0.5">v2.5.0</p>
-            </div>
-          </div>
-        </div>
       </aside>
     </>
   );

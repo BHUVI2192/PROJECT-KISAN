@@ -2,8 +2,9 @@
 import React, { useState } from 'react';
 import { getCropRecommendation } from '../services/geminiService';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Sprout, Droplets, ThermometerSun, FlaskConical, MapPin, Loader2, AlertCircle, TrendingUp } from 'lucide-react';
+import { Sprout, Droplets, ThermometerSun, FlaskConical, MapPin, Loader2, AlertCircle, TrendingUp, Volume2, Square } from 'lucide-react';
 import { CropFormData } from '../types';
+import { useTextToSpeech } from '../hooks/useTextToSpeech';
 
 const CropAdvisor: React.FC = () => {
   const { t, language } = useLanguage();
@@ -18,6 +19,7 @@ const CropAdvisor: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const { speak, stop, isSpeaking } = useTextToSpeech();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -28,6 +30,7 @@ const CropAdvisor: React.FC = () => {
     setLoading(true);
     setError(null);
     setResult(null);
+    stop();
 
     try {
       const jsonStr = await getCropRecommendation(
@@ -47,6 +50,23 @@ const CropAdvisor: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleReadResults = () => {
+    if (isSpeaking) {
+        stop();
+        return;
+    }
+    if (!result) return;
+    
+    let text = t('crop_advisor.results.top_picks') + ". ";
+    result.recommended_crops?.forEach((c: any) => {
+        text += `${c.name}, ${c.season}. ${c.reason}. `;
+    });
+    if (result.soil_health_tips) {
+        text += t('crop_advisor.results.soil_tips') + ". " + result.soil_health_tips.join(". ");
+    }
+    speak(text, language);
   };
 
   return (
@@ -211,6 +231,13 @@ const CropAdvisor: React.FC = () => {
                   <span className="bg-emerald-100 text-emerald-700 p-1.5 rounded-lg"><Sprout className="w-5 h-5" aria-hidden="true"/></span>
                   {t('crop_advisor.results.top_picks')}
                 </h3>
+                <button 
+                  onClick={handleReadResults}
+                  className="flex items-center gap-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  {isSpeaking ? <Square size={16} className="fill-current"/> : <Volume2 size={16} />}
+                  {isSpeaking ? "Stop" : "Listen"}
+                </button>
               </div>
               
               <div className="grid gap-4">

@@ -2,7 +2,8 @@
 import React, { useState, useRef } from 'react';
 import { analyzePlantDisease } from '../services/geminiService';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Upload, ScanLine, X, AlertTriangle, CheckCircle2, Loader2, Image as ImageIcon, Leaf, ShieldCheck, Activity, Info } from 'lucide-react';
+import { Upload, ScanLine, X, AlertTriangle, CheckCircle2, Loader2, Image as ImageIcon, Leaf, ShieldCheck, Activity, Info, Volume2, Square } from 'lucide-react';
+import { useTextToSpeech } from '../hooks/useTextToSpeech';
 
 interface AnalysisResult {
   plant_name: string;
@@ -20,6 +21,7 @@ const DiseaseDetector: React.FC = () => {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { speak, stop, isSpeaking } = useTextToSpeech();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -29,6 +31,7 @@ const DiseaseDetector: React.FC = () => {
         setImage(reader.result as string);
         setResult(null); 
         setError(null);
+        stop();
       };
       reader.readAsDataURL(file);
     }
@@ -39,6 +42,7 @@ const DiseaseDetector: React.FC = () => {
     setLoading(true);
     setError(null);
     setResult(null);
+    stop();
     try {
       const base64Data = image.split(',')[1];
       const analysisJson = await analyzePlantDisease(base64Data, language);
@@ -65,7 +69,19 @@ const DiseaseDetector: React.FC = () => {
     setImage(null);
     setResult(null);
     setError(null);
+    stop();
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleReadReport = () => {
+    if (isSpeaking) {
+      stop();
+      return;
+    }
+    if (!result) return;
+    
+    const text = `${result.diagnosis}. ${result.is_healthy ? t('disease_detector.results.healthy') : t('disease_detector.results.diseased')}. ${result.description}. ${result.treatments.join('. ')}`;
+    speak(text, language);
   };
 
   return (
@@ -180,6 +196,15 @@ const DiseaseDetector: React.FC = () => {
                       <p className="text-sm opacity-90 mt-1">{result.plant_name} • {result.is_healthy ? t('disease_detector.results.healthy') : t('disease_detector.results.diseased')}</p>
                     </div>
                   </div>
+                  <button 
+                    onClick={handleReadReport}
+                    className={`p-2 rounded-full transition-colors ${
+                      result.is_healthy ? 'hover:bg-green-100 text-green-700' : 'hover:bg-red-100 text-red-700'
+                    }`}
+                    title="Read Report"
+                  >
+                    {isSpeaking ? <Square size={20} className="fill-current" /> : <Volume2 size={20} />}
+                  </button>
                 </div>
               </div>
 

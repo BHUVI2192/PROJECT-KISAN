@@ -1,42 +1,22 @@
 
-import React, { useEffect, useState } from 'react';
-import { Cloud, CloudRain, Droplets, MapPin, Sun, Wind, AlertTriangle, Sprout, Search } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Cloud, CloudRain, Droplets, MapPin, Sun, Wind, AlertTriangle, Sprout, Search, RefreshCw, Volume2, Square } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getWeatherForecast, generateAgriAdvice } from '../services/weatherService';
 import { WeatherData, AgriAdvice } from '../types';
+import { useTextToSpeech } from '../hooks/useTextToSpeech';
 
 const SmartWeatherAdvisor: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [forecast, setForecast] = useState<WeatherData[]>([]);
   const [advice, setAdvice] = useState<AgriAdvice | null>(null);
   const [locationName, setLocationName] = useState<string>(t('weather.locating'));
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // 1. Get Location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          // In a real app, reverse geocode here to get village/district name
-          setLocationName(`${latitude.toFixed(2)}, ${longitude.toFixed(2)}`); // Fallback for now
-          
-          fetchWeather(latitude, longitude);
-        },
-        () => {
-          // Permission denied or error
-          setLocationName(t('weather.location_denied'));
-          fetchWeather(28.61, 77.20); // Default to New Delhi
-        }
-      );
-    } else {
-      setLocationName(t('weather.location_denied'));
-      fetchWeather(28.61, 77.20);
-    }
-  }, []);
+  const { speak, stop, isSpeaking } = useTextToSpeech();
 
   const fetchWeather = async (lat: number, lon: number) => {
     setLoading(true);
+    stop();
     try {
       const data = await getWeatherForecast(lat, lon);
       setForecast(data);
@@ -50,6 +30,31 @@ const SmartWeatherAdvisor: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const initWeather = useCallback(() => {
+    setLoading(true);
+    stop();
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          setLocationName(`${latitude.toFixed(2)}, ${longitude.toFixed(2)}`);
+          fetchWeather(latitude, longitude);
+        },
+        () => {
+          setLocationName(t('weather.location_denied'));
+          fetchWeather(28.61, 77.20);
+        }
+      );
+    } else {
+      setLocationName(t('weather.location_denied'));
+      fetchWeather(28.61, 77.20);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    initWeather();
+  }, [initWeather]);
 
   const getWeatherIcon = (condition: string, className = "w-6 h-6") => {
     switch (condition) {
@@ -83,6 +88,13 @@ const SmartWeatherAdvisor: React.FC = () => {
     }
   };
 
+  const handleReadAdvice = () => {
+    if (isSpeaking) { stop(); return; }
+    if (!advice) return;
+    const text = `Current weather in ${locationName}. ${advice.conditionLabel}. ${advice.actions.map(a => a.text).join('. ')}`;
+    speak(text, language);
+  }
+
   if (loading) {
     return (
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-emerald-100/50 min-h-[200px] flex items-center justify-center">
@@ -101,7 +113,7 @@ const SmartWeatherAdvisor: React.FC = () => {
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-emerald-100 overflow-hidden">
       {/* Header: Location & Current Condition */}
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-500 p-6 text-white">
+      <div className="bg-gradient-to-r from-emerald-600 to-teal-500 p-6 text-white relative">
         <div className="flex justify-between items-start">
           <div>
             <div className="flex items-center gap-2 opacity-90 text-sm font-medium mb-1">
@@ -122,6 +134,23 @@ const SmartWeatherAdvisor: React.FC = () => {
             <p className="text-xs text-emerald-100 font-medium uppercase tracking-wider mb-1">{t('dashboard.weather_today')}</p>
             <p className="text-lg font-bold">{new Date().toLocaleDateString(undefined, { weekday: 'long' })}</p>
           </div>
+        </div>
+        
+        <div className="mt-4 flex justify-end gap-2">
+          <button 
+            onClick={handleReadAdvice}
+            className="flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium backdrop-blur-sm transition-colors text-white"
+          >
+            {isSpeaking ? <Square size={14} className="fill-current" /> : <Volume2 size={14} />}
+            {isSpeaking ? "Stop" : "Listen"}
+          </button>
+          <button 
+            onClick={initWeather}
+            className="flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium backdrop-blur-sm transition-colors text-white"
+          >
+            <RefreshCw size={14} />
+            Fetch Weather
+          </button>
         </div>
       </div>
 

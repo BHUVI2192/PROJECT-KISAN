@@ -2,9 +2,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { chatWithBot } from '../services/geminiService';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Send, User, Bot, Loader2, Sparkles, X } from 'lucide-react';
+import { Send, User, Bot, Loader2, Sparkles, X, Volume2, Square } from 'lucide-react';
 import { ChatMessage } from '../types';
 import ReactMarkdown from 'react-markdown';
+import { useTextToSpeech } from '../hooks/useTextToSpeech';
 
 interface AgriChatProps {
   isWidget?: boolean;
@@ -17,12 +18,21 @@ const AgriChat: React.FC<AgriChatProps> = ({ isWidget = false, onClose }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  const { speak, stop, isSpeaking } = useTextToSpeech();
+  const [activeMsgId, setActiveMsgId] = useState<string | null>(null);
 
   useEffect(() => {
     setMessages([
       { id: '1', role: 'model', text: t('chat.welcome_msg') }
     ]);
   }, [language, t]);
+
+  useEffect(() => {
+    if (!isSpeaking) {
+      setActiveMsgId(null);
+    }
+  }, [isSpeaking]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -34,6 +44,8 @@ const AgriChat: React.FC<AgriChatProps> = ({ isWidget = false, onClose }) => {
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
+
+    if (isSpeaking) stop();
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -79,6 +91,16 @@ const AgriChat: React.FC<AgriChatProps> = ({ isWidget = false, onClose }) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  const handleSpeak = (msg: ChatMessage) => {
+    if (activeMsgId === msg.id) {
+      stop();
+      setActiveMsgId(null);
+    } else {
+      speak(msg.text, language);
+      setActiveMsgId(msg.id);
     }
   };
 
@@ -165,6 +187,26 @@ const AgriChat: React.FC<AgriChatProps> = ({ isWidget = false, onClose }) => {
                   <p>{msg.text}</p>
                 )}
               </div>
+              
+              {msg.role === 'model' && !msg.isError && (
+                <button
+                  onClick={() => handleSpeak(msg)}
+                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-emerald-600 transition-colors ml-1 px-2 py-1 rounded-md hover:bg-gray-100 w-fit"
+                  aria-label={activeMsgId === msg.id ? "Stop reading" : "Read aloud"}
+                >
+                  {activeMsgId === msg.id ? (
+                    <>
+                      <Square size={12} className="fill-current" />
+                      <span>Stop</span>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 size={14} />
+                      <span>Read</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         ))}
